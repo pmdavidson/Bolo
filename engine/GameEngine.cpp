@@ -1,0 +1,263 @@
+#include "GameEngine.h"
+#include "FontData.h"
+#include "GameObject.h"
+#include <memory>    // for std::shared_ptr
+#include <stdexcept> // for std::runtime_error
+#include <iostream>  // for debug output
+#include <algorithm> // for std::remove_if
+#include "CollisionObject.h"
+
+/// @brief
+namespace CMPUT350
+{
+    GameEngine::GameEngine(unsigned int width, unsigned int height, const std::string &title)
+        : mWindow(sf::VideoMode({width, height}), title),
+          mDebugText(mFont, sf::String(""), 14u),
+          mDrawContext(std::shared_ptr<sf::RenderWindow>(&mWindow, [](sf::RenderWindow *) {}),
+                       std::shared_ptr<sf::Font>(&mFont, [](sf::Font *) {})),
+          mGUIContext(std::shared_ptr<sf::RenderWindow>(&mWindow, [](sf::RenderWindow *) {}),
+                      std::shared_ptr<sf::Font>(&mFont, [](sf::Font *) {})) // NEW: GUI context setup
+    {
+        // Initialize context pointers
+        mContext.EngineContext = this;
+        mContext.ScreenContext = &mDrawContext;
+        mContext.GUIContext = &mGUIContext;
+        mContext.NotificationContext = &mNotificationManager;
+
+        // Limit to 30 frames per second
+        mWindow.setFramerateLimit(30);
+
+        // Load font from memory
+        if (!mFont.openFromMemory(
+                _System_Library_Fonts_Supplemental_Trattatello_ttf,
+                sizeof(_System_Library_Fonts_Supplemental_Trattatello_ttf)))
+        {
+            throw std::runtime_error("Failed to load font from memory!");
+        }
+
+        // Debug text setup
+        mDebugText.setFont(mFont);
+        mDebugText.setCharacterSize(14);
+        mDebugText.setFillColor(sf::Color::White);
+        mDebugText.setPosition(sf::Vector2f(10.f, 10.f));
+
+        // Clear object containers
+        mGameObjects.clear();
+        mPendingObjects.clear();
+    }
+
+    GameEngine::~GameEngine()
+    {
+        mGameObjects.clear();
+        mPendingObjects.clear();
+        
+        // Clear notification manager
+        mNotificationManager = NotificationManager();
+        
+        // Close window if still open
+        if (mWindow.isOpen())
+        {
+            mWindow.close();
+        }
+    }
+
+    void GameEngine::AddGameObject(std::shared_ptr<GameObject> gameObject)
+    {
+        mPendingObjects.push_back(std::move(gameObject));
+    }
+
+    // Re-declared locally here since you can't make a new file
+    bool GetCollisionPoint(
+        const std::shared_ptr<CollisionObject> &a,
+        const std::shared_ptr<CollisionObject> &b,
+        Point2D &outPoint)
+    {
+        const auto &shapesA = a->GetShapes();
+        const auto &shapesB = b->GetShapes();
+
+        for (const auto &shapeA : shapesA)
+        {
+            for (const auto &shapeB : shapesB)
+            {
+                if (shapeA.t == ShapeType::kCircle && shapeB.t == ShapeType::kCircle)
+                {
+                    const auto &c1 = shapeA.shape.circle;
+                    const auto &c2 = shapeB.shape.circle;
+
+                    outPoint = (c1.center + c2.center) * 0.5f;
+                    return true;
+                }
+                else if (shapeA.t == ShapeType::kRect && shapeB.t == ShapeType::kRect)
+                {
+                    const auto &r1 = shapeA.shape.rect;
+                    const auto &r2 = shapeB.shape.rect;
+                    Rect overlap = r1;
+                    overlap &= r2;
+
+                    if (overlap.width > 0 && overlap.height > 0)
+                    {
+                        outPoint = overlap.topLeft + Point2D(overlap.width / 2.0f, overlap.height / 2.0f);
+                        return true;
+                    }
+                }
+                else if (shapeA.t == ShapeType::kLine && shapeB.t == ShapeType::kLine)
+                {
+                    const auto &l1 = shapeA.shape.line;
+                    const auto &l2 = shapeB.shape.line;
+
+                    if (l1.Crosses(l2, outPoint))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        outPoint = Point2D(0, 0);
+        return true;
+
+    }
+
+    void GameEngine::Run()
+    {
+        // Main game loop
+        while (mWindow.isOpen())
+        {
+
+            // Iterate through mGameObjects and remove dead ones
+            mGameObjects.erase(
+                std::remove_if(mGameObjects.begin(), mGameObjects.end(),
+                               [](const std::shared_ptr<GameObject> &obj)
+                               { return !obj->IsAlive(); }),
+                mGameObjects.end());
+
+            // Add pending objects
+            if (!mPendingObjects.empty())
+            {
+                mGameObjects.insert(mGameObjects.end(),
+                                    std::make_move_iterator(mPendingObjects.begin()),
+                                    std::make_move_iterator(mPendingObjects.end()));
+                mPendingObjects.clear();
+            }
+
+            // Process events
+            while (auto event = mWindow.pollEvent())
+            {
+                if (event->is<sf::Event::Closed>())
+                {
+                    mWindow.close();
+                }
+                else if (auto key = event->getIf<sf::Event::KeyPressed>())
+                {
+                    char keyChar = '\0';
+
+                    // Map SFML key to char
+                    switch (key->code)
+                    {
+                    case sf::Keyboard::Key::W:
+                        keyChar = 'w';
+                        break;
+                    case sf::Keyboard::Key::A:
+                        keyChar = 'a';
+                        break;
+                    case sf::Keyboard::Key::S:
+                        keyChar = 's';
+                        break;
+                    case sf::Keyboard::Key::D:
+                        keyChar = 'd';
+                        break;
+                    case sf::Keyboard::Key::X:
+                        keyChar = 'x';
+                        break;
+                    case sf::Keyboard::Key::Num1:
+                        keyChar = '1';
+                        break;
+                    case sf::Keyboard::Key::Num2:
+                        keyChar = '2';
+                        break;
+                    case sf::Keyboard::Key::Num3:
+                        keyChar = '3';
+                        break;
+                    case sf::Keyboard::Key::Num4:
+                        keyChar = '4';
+                        break;
+                    case sf::Keyboard::Key::Num5:
+                        keyChar = '5';
+                        break;
+                    case sf::Keyboard::Key::Space:
+                        keyChar = ' ';
+                        break;
+                    default:
+                        break; // Key not handled
+                    }
+
+                    if (keyChar != '\0')
+                    {
+                        for (auto &obj : mGameObjects)
+                        {
+                            obj->HandleKeyEvent(&mContext, keyChar);
+                        }
+                    }
+                }
+            }
+
+            // Update
+            for (auto &obj : mGameObjects)
+            {
+                mContext.CurrObject = obj;
+                obj->Update(&mContext);
+            }
+
+            // Process collisions
+            for (size_t i = 0; i < mGameObjects.size(); ++i)
+            {
+                std::shared_ptr<CollisionObject> objA = std::dynamic_pointer_cast<CollisionObject>(mGameObjects[i]);
+                if (objA == nullptr)
+                    continue;
+
+                for (size_t j = i + 1; j < mGameObjects.size(); ++j)
+                {
+                    std::shared_ptr<CollisionObject> objB = std::dynamic_pointer_cast<CollisionObject>(mGameObjects[j]);
+                    if (objB == nullptr)
+                        continue;
+
+                    if (objB->IsStatic() && objA->IsStatic())
+                        continue; // Skip static-static
+
+                    if (!objA->GetBounds().intersects(objB->GetBounds()))
+                    {
+                        continue;
+                    }
+
+                    Point2D collisionPoint;
+                    if (CMPUT350::GetCollisionPoint(objA, objB, collisionPoint))
+                    {
+                        objA->CollisionEnter(objB, collisionPoint);
+                        objB->CollisionEnter(objA, collisionPoint);
+                    }
+                }
+            }
+
+            // Late update
+            for (auto &obj : mGameObjects)
+            {
+                mContext.CurrObject = obj;
+                obj->LateUpdate(&mContext);
+            }
+
+            // Render
+            mWindow.clear();
+            for (auto &obj : mGameObjects)
+            {
+                mContext.CurrObject = obj;
+                obj->RenderBackground(&mContext);
+            }
+            for (auto &obj : mGameObjects)
+            {
+                mContext.CurrObject = obj;
+                obj->RenderForeground(&mContext);
+            }
+            mWindow.draw(mDebugText);
+            mWindow.display();
+        }
+    }
+}

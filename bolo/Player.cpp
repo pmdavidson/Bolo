@@ -181,13 +181,27 @@ namespace CMPUT350
         if (!mIsAlive)
             return;
 
+        // Ignore own bullet
         if (mLastBullet.lock().get() == obj.get())
-        {
             return;
-        }
 
-        // Kill player
-        mIsAlive = false;
+        // Get their shapes and ours
+        const auto &theirShapes = obj->GetShapes();
+        const auto &myShapes = this->GetShapes();
+
+        for (const Shape &mine : myShapes)
+        {
+            for (const Shape &theirs : theirShapes)
+            {
+                Point2D hit;
+                if (ShapeIntersect(mine, theirs, &hit))
+                {
+                    // Kill the player on confirmed collision
+                    mIsAlive = false;
+                    return;
+                }
+            }
+        }
     }
 
     const Rect &Player::GetBounds()
@@ -199,39 +213,39 @@ namespace CMPUT350
     {
         mShapes.clear();
 
-        // float trackLength = mTankSize * 0.8f;
-        // CMPUT350::Point2D perp(-mDirection.y, mDirection.x);
-        // float trackSeparation = mTankSize * 0.6f;
-        // float bodyLength = trackSeparation * 1.4f;
+        float trackLength = mTankSize * 0.8f;
+        CMPUT350::Point2D perp(-mDirection.y, mDirection.x);
+        float trackSeparation = mTankSize * 0.6f;
+        float bodyLength = trackSeparation * 1.4f;
 
         // Left track
-        // CMPUT350::Point2D leftTrackCenter = mPosition + perp * (trackSeparation / 2.0f);
-        // CMPUT350::Point2D leftStart = leftTrackCenter - mDirection * (trackLength / 2.0f);
-        // CMPUT350::Point2D leftEnd = leftTrackCenter + mDirection * (trackLength / 2.0f);
+        CMPUT350::Point2D leftTrackCenter = mPosition + perp * (trackSeparation / 2.0f);
+        CMPUT350::Point2D leftStart = leftTrackCenter - mDirection * (trackLength / 2.0f);
+        CMPUT350::Point2D leftEnd = leftTrackCenter + mDirection * (trackLength / 2.0f);
         mShapes.emplace_back(mBounds);
 
         // Right track
-        // CMPUT350::Point2D rightTrackCenter = mPosition - perp * (trackSeparation / 2.0f);
-        // CMPUT350::Point2D rightStart = rightTrackCenter - mDirection * (trackLength / 2.0f);
-        // CMPUT350::Point2D rightEnd = rightTrackCenter + mDirection * (trackLength / 2.0f);
-        // mShapes.emplace_back(Shape(Line(rightStart, rightEnd)));
+        CMPUT350::Point2D rightTrackCenter = mPosition - perp * (trackSeparation / 2.0f);
+        CMPUT350::Point2D rightStart = rightTrackCenter - mDirection * (trackLength / 2.0f);
+        CMPUT350::Point2D rightEnd = rightTrackCenter + mDirection * (trackLength / 2.0f);
+        mShapes.emplace_back(Shape(Line(rightStart, rightEnd)));
 
         // Main body (horizontal crossbar)
-        // CMPUT350::Point2D bodyStart = mPosition - perp * (bodyLength / 2.0f);
-        // CMPUT350::Point2D bodyEnd = mPosition + perp * (bodyLength / 2.0f);
-        // mShapes.emplace_back(Shape(Line(bodyStart, bodyEnd)));
+        CMPUT350::Point2D bodyStart = mPosition - perp * (bodyLength / 2.0f);
+        CMPUT350::Point2D bodyEnd = mPosition + perp * (bodyLength / 2.0f);
+        mShapes.emplace_back(Shape(Line(bodyStart, bodyEnd)));
 
         // Turret
-        // float turretLength = mTurretLength;
-        // CMPUT350::Point2D turretDir = mTurretDirection;
-        // float currentLength = std::sqrt(turretDir.x * turretDir.x + turretDir.y * turretDir.y);
-        // if (currentLength > 0)
-        // {
-        //     turretDir.x = (turretDir.x / currentLength) * turretLength;
-        //     turretDir.y = (turretDir.y / currentLength) * turretLength;
-        // }
-        // CMPUT350::Point2D turretEnd = mPosition + turretDir;
-        // mShapes.push_back(Shape(Line(mPosition, turretEnd)));
+        float turretLength = mTurretLength;
+        CMPUT350::Point2D turretDir = mTurretDirection;
+        float currentLength = std::sqrt(turretDir.x * turretDir.x + turretDir.y * turretDir.y);
+        if (currentLength > 0)
+        {
+            turretDir.x = (turretDir.x / currentLength) * turretLength;
+            turretDir.y = (turretDir.y / currentLength) * turretLength;
+        }
+        CMPUT350::Point2D turretEnd = mPosition + turretDir;
+        mShapes.push_back(Shape(Line(mPosition, turretEnd)));
 
         return mShapes;
     }

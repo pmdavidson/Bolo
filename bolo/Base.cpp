@@ -261,7 +261,50 @@ namespace CMPUT350
     const std::vector<Shape> &Base::GetShapes()
     {
         mShapes.clear();
-        mShapes.emplace_back(mBounds);
+
+        if (mHealth > 0)
+        {
+            const float shrinkPerHealth = 30.0f;
+            const float maxSize = mBaseRadius * 2.0f;
+            const float wallThickness = 30.0f;
+
+            float outerSize = maxSize - (shrinkPerHealth * (4 - mHealth));
+
+            // Ensure outer size doesn't get too small
+            float heartDiameter = mBaseRadius * 0.6f;
+            if (outerSize < heartDiameter + 2.0f * wallThickness)
+            {
+                outerSize = heartDiameter + 2.0f * wallThickness;
+            }
+
+            float innerSize = outerSize - 2.0f * wallThickness;
+
+            float halfOuter = outerSize / 2.0f;
+            float halfInner = innerSize / 2.0f;
+
+            // Top wall
+            Rect topWall(mPosition.x - halfOuter, mPosition.y - halfOuter, outerSize, wallThickness);
+            mShapes.emplace_back(topWall);
+
+            // Bottom wall
+            Rect bottomWall(mPosition.x - halfOuter, mPosition.y + halfInner, outerSize, wallThickness);
+            mShapes.emplace_back(bottomWall);
+
+            // Left wall
+            Rect leftWall(mPosition.x - halfOuter, mPosition.y - halfOuter, wallThickness, outerSize);
+            mShapes.emplace_back(leftWall);
+
+            // Right wall
+            Rect rightWall(mPosition.x + halfInner, mPosition.y - halfOuter, wallThickness, outerSize);
+            mShapes.emplace_back(rightWall);
+        }
+        else
+        {
+            // At 0 health, the base is just a heart-shaped circle
+            float radius = mBaseRadius * 0.25f;
+            mShapes.emplace_back(Circle(mPosition, radius));
+        }
+
         return mShapes;
     }
 

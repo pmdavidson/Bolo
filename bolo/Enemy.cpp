@@ -240,7 +240,7 @@ namespace CMPUT350
     const std::vector<Shape> &Enemy::GetShapes()
     {
         mShapes.clear();
-        mShapes.push_back(mBounds);
+        mShapes.push_back(Circle(mPosition, mRadius));
         return mShapes;
     }
 

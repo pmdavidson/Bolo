@@ -32,10 +32,16 @@ namespace CMPUT350
         const_iterator begin() const override { return mGameObjects.begin(); }
         const_iterator end() const override { return mGameObjects.end(); }
 
-        bool GetCollisionPoint(
-            const std::shared_ptr<CollisionObject> &a,
-            const std::shared_ptr<CollisionObject> &b,
-            Point2D &outPoint);
+        // bool GetCollisionPoint(
+        //     const std::shared_ptr<CollisionObject> &a,
+        //     const std::shared_ptr<CollisionObject> &b,
+        //     Point2D &outPoint);
+
+        // bool ShapeIntersect(const Shape &a, const Shape &b, Point2D *out);
+        // // bool CollidesWith(const std::shared_ptr<CollisionObject> &other, Point2D *out = nullptr);
+        // bool CollidesWith(const std::shared_ptr<CollisionObject>& a,
+        //           const std::shared_ptr<CollisionObject>& b,
+        //           Point2D* out);
 
     private:
         sf::RenderWindow mWindow;

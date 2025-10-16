@@ -8,7 +8,6 @@ namespace CMPUT350
         : mLocation(location), mRadius(radius)
     {
         mBounds = Rect(location, static_cast<float>(radius));
-        mShapes.emplace_back(Circle(location, radius));
     }
 
     // Explosions are in LateUpdate not Update
@@ -56,7 +55,7 @@ namespace CMPUT350
     const std::vector<Shape> &Explosion::GetShapes()
     {
         mShapes.clear();
-        mShapes.emplace_back(mBounds);
+        mShapes.emplace_back(Circle(mLocation, mRadius));
         return mShapes;
     }
 }

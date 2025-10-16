@@ -6,6 +6,7 @@
 #include <iostream>  // for debug output
 #include <algorithm> // for std::remove_if
 #include "CollisionObject.h"
+#include "CollisionObject.cpp"
 
 /// @brief
 namespace CMPUT350
@@ -64,57 +65,6 @@ namespace CMPUT350
     void GameEngine::AddGameObject(std::shared_ptr<GameObject> gameObject)
     {
         mPendingObjects.push_back(std::move(gameObject));
-    }
-
-    // Re-declared locally here since you can't make a new file
-    bool GetCollisionPoint(
-        const std::shared_ptr<CollisionObject> &a,
-        const std::shared_ptr<CollisionObject> &b,
-        Point2D &outPoint)
-    {
-        const auto &shapesA = a->GetShapes();
-        const auto &shapesB = b->GetShapes();
-
-        for (const auto &shapeA : shapesA)
-        {
-            for (const auto &shapeB : shapesB)
-            {
-                if (shapeA.t == ShapeType::kCircle && shapeB.t == ShapeType::kCircle)
-                {
-                    const auto &c1 = shapeA.shape.circle;
-                    const auto &c2 = shapeB.shape.circle;
-
-                    outPoint = (c1.center + c2.center) * 0.5f;
-                    return true;
-                }
-                else if (shapeA.t == ShapeType::kRect && shapeB.t == ShapeType::kRect)
-                {
-                    const auto &r1 = shapeA.shape.rect;
-                    const auto &r2 = shapeB.shape.rect;
-                    Rect overlap = r1;
-                    overlap &= r2;
-
-                    if (overlap.width > 0 && overlap.height > 0)
-                    {
-                        outPoint = overlap.topLeft + Point2D(overlap.width / 2.0f, overlap.height / 2.0f);
-                        return true;
-                    }
-                }
-                else if (shapeA.t == ShapeType::kLine && shapeB.t == ShapeType::kLine)
-                {
-                    const auto &l1 = shapeA.shape.line;
-                    const auto &l2 = shapeB.shape.line;
-
-                    if (l1.Crosses(l2, outPoint))
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-        outPoint = Point2D(0, 0);
-        return true;
-
     }
 
     void GameEngine::Run()
@@ -223,16 +173,20 @@ namespace CMPUT350
                     if (objB->IsStatic() && objA->IsStatic())
                         continue; // Skip static-static
 
-                    if (!objA->GetBounds().intersects(objB->GetBounds()))
+                    if (objA->GetBounds().intersects(objB->GetBounds()))
                     {
-                        continue;
-                    }
 
                     Point2D collisionPoint;
-                    if (CMPUT350::GetCollisionPoint(objA, objB, collisionPoint))
-                    {
+
+                    // if (CollidesWith(objA, objB, &collisionPoint)) {
+                    //     objA->CollisionEnter(objB, collisionPoint);
+                    //     objB->CollisionEnter(objA, collisionPoint);
+                    // }
+
+                    if (objA->CollidesWith(objB, &collisionPoint)) {
                         objA->CollisionEnter(objB, collisionPoint);
                         objB->CollisionEnter(objA, collisionPoint);
+                    }
                     }
                 }
             }

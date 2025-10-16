@@ -20,9 +20,16 @@ namespace CMPUT350
 
 
     struct Shape {
-        Shape(const Line &l) : shape(l), t(ShapeType::kLine) {}
-        Shape(const Circle &c) : shape(c), t(ShapeType::kCircle) {}
-        Shape(const Rect &r) : shape(r), t(ShapeType::kRect) {}
+Shape(const Line &l) : shape(l), t(ShapeType::kLine) {
+    std::cout << "[DEBUG] Shape(Line) created\n";
+}
+Shape(const Rect &r) : shape(r), t(ShapeType::kRect) {
+    std::cout << "[DEBUG] Shape(Rect) created\n";
+}
+Shape(const Circle &c) : shape(c), t(ShapeType::kCircle) {
+    std::cout << "[DEBUG] Shape(Circle) created\n";
+}
+
         ShapeUnion shape;
         ShapeType t;
     };
@@ -46,7 +53,10 @@ namespace CMPUT350
         // Return the internal shapes in the object. Shapes can be:
         // lines, points/circles, or axis-aligned rectangles
         virtual const std::vector<Shape> &GetShapes() = 0;
-        };
+        
+        bool ShapeIntersect(const Shape &a, const Shape &b, Point2D *out);
+        bool CollidesWith(const std::shared_ptr<CollisionObject> &other, Point2D *out = nullptr);
+    };
 }
 
 #endif

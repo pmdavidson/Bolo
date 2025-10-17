@@ -2,7 +2,7 @@
 
 namespace CMPUT350 {
     NotificationManager::~NotificationManager() {
-        // Clear all listeners to prevent dangling references
+        //clear all listeners to prevent dangling references
         mListeners.clear();
     }
 
@@ -20,13 +20,13 @@ namespace CMPUT350 {
         vec.erase(
             std::remove_if(vec.begin(), vec.end(),
                             [&object](const std::weak_ptr<GameObject>& listener) {
-                                return listener.lock() == object.lock(); // match by shared_ptr identity
+                                return listener.lock() == object.lock(); //match by shared_ptr identity
                             }
                 ), 
             vec.end());
 
         if (vec.empty()) {
-            mListeners.erase(it); // Clean up empty keys
+            mListeners.erase(it); //clean up empty keys
         }
     }
 
@@ -42,8 +42,8 @@ namespace CMPUT350 {
                                         [&message](std::weak_ptr<GameObject>& listener) {
                                             auto sp = listener.lock();
                                             if (!sp) 
-                                                return true; // dead object, remove
-                                            sp->ReceiveNotification(message); // notify
+                                                return true; //dead object, remove
+                                            sp->ReceiveNotification(message); //notify
                                             return false;
                                         }
                                 ), 

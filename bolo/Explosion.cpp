@@ -8,8 +8,6 @@ namespace CMPUT350
         : mLocation(location), mRadius(radius)
     {
         mBounds = Rect(location, static_cast<float>(radius));
-        // Initialize mShapes with one element so we can safely update it in LateUpdate
-        mShapes.emplace_back(Circle(mLocation, static_cast<float>(mRadius)));
     }
 
     // Explosions are in LateUpdate not Update
@@ -21,17 +19,12 @@ namespace CMPUT350
         {
             mRadius--;
             mBounds = Rect(mLocation, static_cast<float>(mRadius));
-            if (!mShapes.empty())
-            {
-                mShapes[0] = Circle(mLocation, static_cast<float>(mRadius));
-            }
         }
-        // If explosion is gone then it's dead
+
         if (mRadius <= 0)
-        {
             mIsAlive = false;
-        }
     }
+
 
     void Explosion::RenderBackground(GameContext *context)
     {
@@ -61,6 +54,7 @@ namespace CMPUT350
     {
         mShapes.clear();
         mShapes.emplace_back(Circle(mLocation, mRadius));
+        mShapes.emplace_back(Rect(mBounds));
         return mShapes;
     }
 }

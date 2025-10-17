@@ -20,15 +20,9 @@ namespace CMPUT350
 
 
     struct Shape {
-Shape(const Line &l) : shape(l), t(ShapeType::kLine) {
-    std::cout << "[DEBUG] Shape(Line) created\n";
-}
-Shape(const Rect &r) : shape(r), t(ShapeType::kRect) {
-    std::cout << "[DEBUG] Shape(Rect) created\n";
-}
-Shape(const Circle &c) : shape(c), t(ShapeType::kCircle) {
-    std::cout << "[DEBUG] Shape(Circle) created\n";
-}
+        Shape(const Line &l) : shape(l), t(ShapeType::kLine) {}
+        Shape(const Rect &r) : shape(r), t(ShapeType::kRect) {}
+        Shape(const Circle &c) : shape(c), t(ShapeType::kCircle) {}
 
         ShapeUnion shape;
         ShapeType t;

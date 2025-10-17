@@ -66,9 +66,9 @@ namespace CMPUT350
         void GenerateMaze();
         void GenerateFullMaze();
         void RemoveWalls(int density);
-        void DFS(int x, int y);
         void AddWallsToEngine(GameContext *context);
         void ClearMaze();
+        void DFS(int startX, int startY);
 
         // Level management
         void InitializeLevel(GameContext *context);

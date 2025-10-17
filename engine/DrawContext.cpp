@@ -90,4 +90,14 @@ namespace CMPUT350
         mWindow->setView(view);
     }
 
+    void DrawContext::SetGameplayCenterAndSize(Point2D center, sf::Vector2f size)
+    {
+        // Maintain the gameplay viewport while adjusting world view center/size
+        sf::View view(sf::FloatRect(sf::Vector2f(0, 0), sf::Vector2f(1024, 1024)));
+        view.setViewport(sf::FloatRect(sf::Vector2f(0.0f, 0.0f), sf::Vector2f(1024.0f / 1280.0f, 1.0f)));
+        view.setCenter(sf::Vector2f(center.x, center.y));
+        view.setSize(size);
+        mWindow->setView(view);
+    }
+
 }

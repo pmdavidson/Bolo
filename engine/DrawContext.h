@@ -40,6 +40,7 @@ namespace CMPUT350
         void SetGameplayViewport();
         void SetFullViewport();
         void SetContextCenter(Point2D p);
+        void SetGameplayCenterAndSize(Point2D center, sf::Vector2f size);
 
     private:
         std::shared_ptr<sf::RenderWindow> mWindow;

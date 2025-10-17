@@ -1,5 +1,6 @@
 #include "CollisionObject.h"
-#include <typeinfo>
+#include <algorithm>
+
 namespace CMPUT350
 {
     bool CollisionObject::ShapeIntersect(const Shape &a, const Shape &b, Point2D *out) {
@@ -35,43 +36,42 @@ namespace CMPUT350
             return CircleIntersectsCircle(shapeA.circle, shapeB.circle, out);
         }
 
-        // CIRCLE vs RECT or RECT vs CIRCLE
-        if (typeA == ShapeType::kCircle && typeB == ShapeType::kRect) {
-            if (!CircleIntersectsRect(shapeA.circle, shapeB.rect, out)) {
-                // std::cout << "[DEBUG] Bullet at " << shapeA.circle.center << " (r=" << shapeA.circle.radius
-                //         << ") missed wall at " << shapeB.rect.topLeft << " w=" << shapeB.rect.width << " h=" << shapeB.rect.height << "\n";
-            }
-            return CircleIntersectsRect(shapeA.circle, shapeB.rect, out);
-        }
-        if (typeA == ShapeType::kRect && typeB == ShapeType::kCircle) {
-            if (!CircleIntersectsRect(shapeB.circle, shapeA.rect, out)) {
-                // std::cout << "[DEBUG] Bullet at " << shapeB.circle.center << " (r=" << shapeB.circle.radius
-                //         << ") missed wall at " << shapeA.rect.topLeft << " w=" << shapeA.rect.width << " h=" << shapeA.rect.height << "\n";
-            }
-            return CircleIntersectsRect(shapeB.circle, shapeA.rect, out);
-        }
+    // CIRCLE vs RECT or RECT vs CIRCLE
+    if (typeA == ShapeType::kCircle && typeB == ShapeType::kRect) {
+        return CircleIntersectsRect(shapeA.circle, shapeB.rect, out);
+    }
+    if (typeA == ShapeType::kRect && typeB == ShapeType::kCircle) {
+        return CircleIntersectsRect(shapeB.circle, shapeA.rect, out);
+    }
 
-        // RECT vs RECT
-        if (typeA == ShapeType::kRect && typeB == ShapeType::kRect) {
-            return shapeA.rect.intersects(shapeB.rect);
+    // RECT vs RECT
+    if (typeA == ShapeType::kRect && typeB == ShapeType::kRect) {
+        if (shapeA.rect.intersects(shapeB.rect)) {
+            // Calculate collision point as center of intersection area
+            if (out) {
+                float leftEdge = std::max(shapeA.rect.topLeft.x, shapeB.rect.topLeft.x);
+                float rightEdge = std::min(shapeA.rect.topLeft.x + shapeA.rect.width, 
+                                          shapeB.rect.topLeft.x + shapeB.rect.width);
+                float topEdge = std::max(shapeA.rect.topLeft.y, shapeB.rect.topLeft.y);
+                float bottomEdge = std::min(shapeA.rect.topLeft.y + shapeA.rect.height, 
+                                           shapeB.rect.topLeft.y + shapeB.rect.height);
+                
+                *out = Point2D((leftEdge + rightEdge) / 2.0f, (topEdge + bottomEdge) / 2.0f);
+            }
+            return true;
         }
         return false;
     }
+    return false;
+    }
 
-        // bool CollisionObject::CollidesWith(const std::shared_ptr<CollisionObject> &other, Point2D *out) {
     bool CollisionObject::CollidesWith(const std::shared_ptr<CollisionObject> &other, Point2D *out) {
         const auto &myShapes = this->GetShapes();
         const auto &theirShapes = other->GetShapes();
 
         for (const Shape &a : myShapes) {
             for (const Shape &b : theirShapes) {
-                // std::cout << "[COLLISION CHECK] My shape type = " << (int)a.t
-                //         << ", Their shape type = " << (int)b.t << std::endl;
                 if (ShapeIntersect(a, b, out)) {
-        //             std::cout << "[COLLISION DETECTED]" << std::endl;
-        //             std::cout << "[COLLISION] objA: " << typeid(*this).name()
-        //   << ", objB: " << typeid(*other).name() << std::endl;
-
                     return true;
                 }
             }

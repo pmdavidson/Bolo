@@ -55,17 +55,18 @@ const std::vector<Shape> &Wall::GetShapes()
 {
     mShapes.clear();
 
+    // Return wall as a rectangle instead of a line for simpler collision detection
     if (mDir == kHorizontal)
     {
-        Point2D p1 = mOrigin;
-        Point2D p2 = Point2D(mOrigin.x + mLength, mOrigin.y);
-        mShapes.emplace_back(Shape(Line(p1, p2))); // ✅ Explicit Line
+        // Horizontal wall: full length, width in height
+        Rect wallRect(mOrigin, mLength, mWidth);
+        mShapes.emplace_back(Shape(wallRect));
     }
     else
     {
-        Point2D p1 = mOrigin;
-        Point2D p2 = Point2D(mOrigin.x, mOrigin.y + mLength);
-        mShapes.emplace_back(Shape(Line(p1, p2))); // ✅ Explicit Line
+        // Vertical wall: width in width, full length in height
+        Rect wallRect(mOrigin, mWidth, mLength);
+        mShapes.emplace_back(Shape(wallRect));
     }
 
     return mShapes;

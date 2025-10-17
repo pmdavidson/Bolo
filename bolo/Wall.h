@@ -23,7 +23,6 @@ namespace CMPUT350
         void RenderForeground(GameContext *context) override;
         void CollisionEnter(const std::shared_ptr<CollisionObject> &obj) override;
         void CollisionEnter(const std::shared_ptr<CollisionObject> &obj, const Point2D &collisionPoint) override;
-        bool IsAlive() override { return true; }
 
         const Rect &GetBounds() override;
         bool IsStatic() const override { return true; }

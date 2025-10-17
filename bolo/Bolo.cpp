@@ -1,7 +1,12 @@
 #include "Bolo.h"
 #include "Wall.h"
 #include "Enemy.h"
+#include "Base.h"
+#include "Bullet.h"
+#include "Explosion.h"
 #include "../engine/DrawContext.h"
+#include "../engine/GameContext.h"
+#include "../engine/NotificationManager.h"
 #include <cstdlib>
 #include <ctime>
 #include <algorithm>
@@ -9,6 +14,8 @@
 
 namespace CMPUT350
 {
+    class NotificationManager;
+
     Bolo::Bolo(int mazeWidth, int mazeHeight, int cellSize, int initialLevel)
         : mState(GameState::WaitingToStart),
           mLevel(initialLevel),
@@ -51,7 +58,14 @@ namespace CMPUT350
             break;
 
         case GameState::InitializingLevel:
-            // Generate maze and spawn objects
+            // Wait for engine to clean up dead objects from previous level
+            if (mStateTimer > 0)
+            {
+                mStateTimer--;
+                break;
+            }
+
+            // Now generate fresh maze and spawn all objects
             GenerateMaze();
             SpawnPlayer(context);
             SpawnBases(context);
@@ -60,8 +74,10 @@ namespace CMPUT350
             if (context->NotificationContext && !mIsRegistered)
             {
                 auto self = shared_from_this();
-                context->NotificationContext->Register(self, "BASE_DESTROYED");
-                context->NotificationContext->Register(self, "ENEMY_DESTROYED");
+                // NotificationContext is a NotificationManager* member of GameContext
+                CMPUT350::NotificationManager *notificationMgr = context->NotificationContext;
+                notificationMgr->Register(self, "BASE_DESTROYED");
+                notificationMgr->Register(self, "ENEMY_DESTROYED");
                 mIsRegistered = true;
             }
 
@@ -97,8 +113,18 @@ namespace CMPUT350
             }
             else
             {
-                // Move to next level
-                mLevel++;
+                // Kill all old level objects
+                CleanupLevel(context);
+
+                // Move to next level (cap at 5)
+                if (mLevel < 5)
+                {
+                    mLevel++;
+                }
+                mMazeDensity = mLevel; // Density matches level (both capped at 5)
+
+                // Wait 2 frames for engine to fully remove dead objects
+                mStateTimer = 2;
                 mState = GameState::InitializingLevel;
             }
             break;
@@ -117,9 +143,18 @@ namespace CMPUT350
         {
             context->ScreenContext->SetGameplayViewport();
 
-            // Center camera on player
-            if (mPlayer)
+            if (mState == GameState::EndLevel)
             {
+                // EndLevel: center on map and zoom out to show entire world
+                float worldCenter = mWorldSize / 2.0f;
+                // Fit entire square world into 1024x1024 gameplay view: size equals world bounds
+                context->ScreenContext->SetGameplayCenterAndSize(
+                    Point2D(worldCenter, worldCenter),
+                    sf::Vector2f(static_cast<float>(mWorldSize), static_cast<float>(mWorldSize)));
+            }
+            else if (mPlayer)
+            {
+                // Gameplay: follow player
                 float playerX = mPlayer->GetBounds().topLeft.x + mPlayer->GetBounds().width / 2.0f;
                 float playerY = mPlayer->GetBounds().topLeft.y + mPlayer->GetBounds().height / 2.0f;
                 context->ScreenContext->SetContextCenter(Point2D(playerX, playerY));
@@ -155,12 +190,8 @@ namespace CMPUT350
             float centerX = mGameplayWidth / 2.0f;
             float centerY = 512.0f;
 
-            // Draw background overlay
-            Rect overlay(0, 0, mGameplayWidth, 1024);
-            context->ScreenContext->DrawRect(overlay, RGBColor(0, 0, 0)); // Black background
-
-            // Main congratulations text
-            std::string congratsText = (mLevel == 1) ? "FIRST LEVEL COMPLETE!" : "LEVEL COMPLETE!";
+            // Congratulations text
+            std::string congratsText = "LEVEL COMPLETE!";
             context->ScreenContext->DrawText(
                 congratsText,
                 40,
@@ -195,8 +226,18 @@ namespace CMPUT350
         {
             context->ScreenContext->SetGameplayViewport();
 
-            if (mPlayer)
+            if (mState == GameState::EndLevel)
             {
+                // EndLevel: center on map and zoom out to show entire world
+                float worldCenter = mWorldSize / 2.0f;
+                // Fit entire square world into 1024x1024 gameplay view: size equals world bounds
+                context->ScreenContext->SetGameplayCenterAndSize(
+                    Point2D(worldCenter, worldCenter),
+                    sf::Vector2f(static_cast<float>(mWorldSize), static_cast<float>(mWorldSize)));
+            }
+            else if (mPlayer)
+            {
+                // Gameplay: follow player
                 float playerX = mPlayer->GetBounds().topLeft.x + mPlayer->GetBounds().width / 2.0f;
                 float playerY = mPlayer->GetBounds().topLeft.y + mPlayer->GetBounds().height / 2.0f;
                 context->ScreenContext->SetContextCenter(Point2D(playerX, playerY));
@@ -212,6 +253,7 @@ namespace CMPUT350
             if (key >= '1' && key <= '5')
             {
                 mMazeDensity = key - '0';
+                mLevel = key - '0';
                 mState = GameState::InitializingLevel;
                 return true;
             }
@@ -240,117 +282,133 @@ namespace CMPUT350
     void Bolo::GenerateMaze()
     {
         ClearMaze();
-        GenerateFullMaze();
+        DFS(0, 0);
         RemoveWalls(mMazeDensity);
     }
 
-    void Bolo::GenerateFullMaze()
+    void Bolo::DFS(int startX, int startY)
     {
-        // Randomized DFS maze generation
-        ClearMaze();
+        // Iterative DFS to carve paths through the maze
+        std::stack<std::pair<int, int>> cellStack;
 
-        // Start DFS from (0, 0)
-        DFS(0, 0);
-    }
+        mCellExplored[startY][startX] = true;
+        cellStack.push({startX, startY});
 
-    void Bolo::DFS(int x, int y)
-    {
-        // Mark current cell as explored
-        mCellExplored[y][x] = true;
-
-        // Create vector of 4 directions and shuffle them
-        std::vector<std::vector<int>> directions = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}; // Right, Down, Left, Up
-
-        // Shuffle directions for randomization
-        for (int i = 3; i > 0; i--)
+        while (!cellStack.empty())
         {
-            int j = std::rand() % (i + 1);
-            std::swap(directions[i][0], directions[j][0]);
-            std::swap(directions[i][1], directions[j][1]);
-        }
+            int x = cellStack.top().first;
+            int y = cellStack.top().second;
 
-        // Try each direction
-        for (int i = 0; i < 4; i++)
-        {
-            int nx = x + directions[i][0];
-            int ny = y + directions[i][1];
+            // Find all unvisited neighbors (0=right, 1=down, 2=left, 3=up)
+            std::vector<int> directions;
+            if (x + 1 < mMazeWidth && !mCellExplored[y][x + 1])
+                directions.push_back(0);
+            if (y + 1 < mMazeHeight && !mCellExplored[y + 1][x])
+                directions.push_back(1);
+            if (x - 1 >= 0 && !mCellExplored[y][x - 1])
+                directions.push_back(2);
+            if (y - 1 >= 0 && !mCellExplored[y - 1][x])
+                directions.push_back(3);
 
-            // Check if next cell is valid and unvisited
-            if (nx >= 0 && nx < mMazeWidth && ny >= 0 && ny < mMazeHeight && !mCellExplored[ny][nx])
+            if (!directions.empty())
             {
-                // Remove wall between current and next cell
-                if (directions[i][0] == 1) // Moving right
+                // Randomly choose a direction and carve path
+                int dir = directions[std::rand() % directions.size()];
+                int nextX = x, nextY = y;
+
+                // Remove wall and move to next cell
+                if (dir == 0)
                 {
                     mWalls[y][x][0] = false;
+                    nextX++;
                 }
-                else if (directions[i][0] == -1) // Moving left
-                {
-                    mWalls[ny][nx][0] = false;
-                }
-                else if (directions[i][1] == 1) // Moving down
+                else if (dir == 1)
                 {
                     mWalls[y][x][1] = false;
+                    nextY++;
                 }
-                else if (directions[i][1] == -1) // Moving up
+                else if (dir == 2)
                 {
-                    mWalls[ny][nx][1] = false;
+                    mWalls[y][x - 1][0] = false;
+                    nextX--;
+                }
+                else
+                {
+                    mWalls[y - 1][x][1] = false;
+                    nextY--;
                 }
 
-                // Recursively visit next cell
-                DFS(nx, ny);
+                mCellExplored[nextY][nextX] = true;
+                cellStack.push({nextX, nextY});
+            }
+            else
+            {
+                cellStack.pop(); // Backtrack
             }
         }
     }
 
     void Bolo::RemoveWalls(int density)
     {
-        // Calculate target percentage of walls to keep
-        // density 1: (5 + 2*1)/18 = 7/18 = 38.8%
-        // density 5: (5 + 2*5)/18 = 15/18 = 83.3%
+        // Cap density at 5 to prevent excessive wall density
+        if (density > 5)
+            density = 5;
+
+        // Calculate target percentage of DFS walls to keep
+        // density 1: (5 + 2*1)/18 = 7/18 = 38.8% keep -> remove 61.2%
+        // density 5: (5 + 2*5)/18 = 15/18 = 83.3% keep -> remove 16.7%
         float keepPercentage = (5.0f + 2.0f * density) / 18.0f;
 
-        // Count total interior walls (excluding outer walls)
-        int totalWalls = 0;
+        // Count current walls after DFS
+        int currentWalls = 0;
         for (int y = 0; y < mMazeHeight; y++)
         {
             for (int x = 0; x < mMazeWidth; x++)
             {
                 if (x < mMazeWidth - 1 && mWalls[y][x][0])
-                    totalWalls++; // Right wall
+                    currentWalls++;
                 if (y < mMazeHeight - 1 && mWalls[y][x][1])
-                    totalWalls++; // Down wall
+                    currentWalls++;
             }
         }
 
-        int targetWalls = static_cast<int>(totalWalls * keepPercentage);
-        int wallsToRemove = totalWalls - targetWalls;
+        // Calculate how many DFS walls to keep
+        int targetWalls = static_cast<int>(currentWalls * keepPercentage);
 
-        // Randomly remove walls (but not outer walls)
-        while (wallsToRemove > 0)
+        // How many walls
+        int wallsToRemove = currentWalls - targetWalls;
+
+        if (wallsToRemove <= 0)
+            return;
+
+        // Collect all existing interior walls
+        std::vector<std::pair<int, int>> wallList; // Stores (y * mMazeWidth + x) * 2 + dir
+        for (int y = 0; y < mMazeHeight; y++)
         {
-            int x = std::rand() % mMazeWidth;
-            int y = std::rand() % mMazeHeight;
-            int dir = std::rand() % 2;
-
-            // Check if this is an outer wall
-            bool isOuterWall = false;
-            if (dir == 0 && x == mMazeWidth - 1)
-                isOuterWall = true; // Right edge
-
-            if (dir == 1 && y == mMazeHeight - 1)
-                isOuterWall = true; // Bottom edge
-
-            if (dir == 0 && x == 0 && !mWalls[y][x][0])
-                continue; // Left edge (wall to the left)
-
-            if (dir == 1 && y == 0 && !mWalls[y][x][1])
-                continue; // Top edge (wall above)
-
-            if (!isOuterWall && mWalls[y][x][dir])
+            for (int x = 0; x < mMazeWidth; x++)
             {
-                mWalls[y][x][dir] = false;
-                wallsToRemove--;
+                if (x < mMazeWidth - 1 && mWalls[y][x][0])
+                    wallList.push_back({y * mMazeWidth + x, 0});
+                if (y < mMazeHeight - 1 && mWalls[y][x][1])
+                    wallList.push_back({y * mMazeWidth + x, 1});
             }
+        }
+
+        // Shuffle the wall list for random removal
+        for (size_t i = wallList.size() - 1; i > 0; i--)
+        {
+            size_t j = std::rand() % (i + 1);
+            std::swap(wallList[i], wallList[j]);
+        }
+
+        // Remove random walls up to the target
+        for (int i = 0; i < wallsToRemove && i < (int)wallList.size(); i++)
+        {
+            int cellIndex = wallList[i].first;
+            int dir = wallList[i].second;
+            int y = cellIndex / mMazeWidth;
+            int x = cellIndex % mMazeWidth;
+            mWalls[y][x][dir] = false;
         }
     }
 
@@ -424,6 +482,7 @@ namespace CMPUT350
         float worldX = cellX * mCellSize + mCellSize / 2.0f;
         float worldY = cellY * mCellSize + mCellSize / 2.0f;
 
+        // Create new player (old one should already be killed in CleanupLevel)
         mPlayer = std::make_shared<Player>(Point2D(worldX, worldY));
         context->EngineContext->AddGameObject(mPlayer);
     }
@@ -437,7 +496,7 @@ namespace CMPUT350
         int basesSpawned = 0;
         int attempts = 0;
 
-        while (basesSpawned < 6 && attempts < 1000)
+        while (basesSpawned < 1 && attempts < 1000)
         {
             int cellX = std::rand() % mMazeWidth;
             int cellY = std::rand() % mMazeHeight;
@@ -655,6 +714,31 @@ namespace CMPUT350
             }
         }
         return count;
+    }
+
+    void Bolo::CleanupLevel(GameContext *context)
+    {
+        // Kill all level objects (walls, bases, enemies, bullets, explosions, player)
+        if (!context->EngineContext)
+            return;
+
+        // kill and clear the player reference
+        if (mPlayer)
+        {
+            mPlayer->Kill();
+            mPlayer.reset();
+        }
+
+        // Then kill all other objects in the engine
+        for (const auto &gameObject : *context->EngineContext)
+        {
+            // Kill everything except the Bolo game manager itself
+            if (gameObject.get() == this)
+                continue;
+
+            // Kill walls, bases, enemies, bullets, explosions
+            gameObject->Kill();
+        }
     }
 
     bool Bolo::AllBasesDestroyed()

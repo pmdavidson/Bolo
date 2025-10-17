@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cmath>
 #include <cstdio>
+#include <algorithm>
 
 namespace CMPUT350
 {
@@ -300,8 +301,8 @@ namespace CMPUT350
             vector.x * sin_a + vector.y * cos_a);
     }
 
-    //For Engine collisions
-    //Line and line is up top
+    // For Engine collisions
+    // Line and line is up top
 
     // inline bool LineIntersectsRect(const Line &line, const Rect &rect, Point2D *outPoint = nullptr) {
     //     // Get rectangle corners
@@ -322,36 +323,44 @@ namespace CMPUT350
     //     return false;
     // }
 
-    inline bool LineIntersectsCircle(const Line &line, const Circle &circle, Point2D *outPoint = nullptr) {
+    inline bool LineIntersectsCircle(const Line &line, const Circle &circle, Point2D *outPoint = nullptr)
+    {
         std::cout << "[DEBUG] LineIntersectsCircle: Line(" << line.p1 << ", " << line.p2 << ") ";
-std::cout << "vs Circle(center=" << circle.center << ", r=" << circle.radius << ")\n";
+        std::cout << "vs Circle(center=" << circle.center << ", r=" << circle.radius << ")\n";
 
         Point2D closest = line.ClosestPoint(circle.center);
         float dist = closest.Distance(circle.center);
 
         std::cout << "[DEBUG] LineIntersectsCircle CALLED with Line("
-              << line.p1 << ", " << line.p2 << ") vs Circle(center="
-              << circle.center << ", r=" << circle.radius << ")\n";
-              
-        if (dist <= circle.radius) {
-            if (outPoint) *outPoint = closest;
+                  << line.p1 << ", " << line.p2 << ") vs Circle(center="
+                  << circle.center << ", r=" << circle.radius << ")\n";
+
+        if (dist <= circle.radius)
+        {
+            if (outPoint)
+                *outPoint = closest;
             std::cout << "[DEBUG] Result = " << "true" << "\n";
 
             return true;
         }
-                    std::cout << "[DEBUG] Result = " << "false" << "\n";
+        std::cout << "[DEBUG] Result = " << "false" << "\n";
 
         return false;
     }
-    
-    inline bool LineIntersectsRect(const Line &line, const Rect &rect, Point2D *outPoint = nullptr) {
-    //handle case where line starts or ends inside the rect
-        if (rect.IsInside(line.p1)) {
-            if (outPoint) *outPoint = line.p1;
+
+    inline bool LineIntersectsRect(const Line &line, const Rect &rect, Point2D *outPoint = nullptr)
+    {
+        // handle case where line starts or ends inside the rect
+        if (rect.IsInside(line.p1))
+        {
+            if (outPoint)
+                *outPoint = line.p1;
             return true;
         }
-        if (rect.IsInside(line.p2)) {
-            if (outPoint) *outPoint = line.p2;
+        if (rect.IsInside(line.p2))
+        {
+            if (outPoint)
+                *outPoint = line.p2;
             return true;
         }
 
@@ -361,20 +370,23 @@ std::cout << "vs Circle(center=" << circle.center << ", r=" << circle.radius << 
         Point2D bl(tl.x, tl.y + rect.height);
         Point2D br(tl.x + rect.width, tl.y + rect.height);
 
-        Line edges[] = { {tl, tr}, {tr, br}, {br, bl}, {bl, tl} };
+        Line edges[] = {{tl, tr}, {tr, br}, {br, bl}, {bl, tl}};
 
-        for (const Line &edge : edges) {
+        for (const Line &edge : edges)
+        {
             Point2D p;
-            if (line.Crosses(edge, p)) {
-                if (outPoint) *outPoint = p;
+            if (line.Crosses(edge, p))
+            {
+                if (outPoint)
+                    *outPoint = p;
                 return true;
             }
         }
         return false;
     }
 
-
-    inline bool CircleIntersectsRect(const Circle &circle, const Rect &rect, Point2D *outPoint = nullptr) {
+    inline bool CircleIntersectsRect(const Circle &circle, const Rect &rect, Point2D *outPoint = nullptr)
+    {
         float closestX = std::clamp(circle.center.x, rect.topLeft.x, rect.topLeft.x + rect.width);
         float closestY = std::clamp(circle.center.y, rect.topLeft.y, rect.topLeft.y + rect.height);
 
@@ -382,20 +394,27 @@ std::cout << "vs Circle(center=" << circle.center << ", r=" << circle.radius << 
         float dy = circle.center.y - closestY;
         float distSq = dx * dx + dy * dy;
 
-        if (distSq <= (circle.radius * circle.radius)) {
-            if (outPoint) *outPoint = Point2D(closestX, closestY);
+        if (distSq <= (circle.radius * circle.radius))
+        {
+            if (outPoint)
+                *outPoint = Point2D(closestX, closestY);
             return true;
         }
         return false;
     }
 
-    inline bool CircleIntersectsCircle(const Circle &a, const Circle &b, Point2D *outPoint = nullptr) {
+    inline bool CircleIntersectsCircle(const Circle &a, const Circle &b, Point2D *outPoint = nullptr)
+    {
         float dist = a.center.Distance(b.center);
-        if (dist <= (a.radius + b.radius)) {
-            if (outPoint) {
-                Point2D dir = b.center - a.center;
+        if (dist <= (a.radius + b.radius))
+        {
+            if (outPoint)
+            {
+                // Calculate collision point as the point on circle B's edge closest to A
+                // This makes explosions chain backwards toward the shooter
+                Point2D dir = a.center - b.center;
                 dir.Normalize();
-                *outPoint = a.center + dir * a.radius;
+                *outPoint = b.center + dir * b.radius;
             }
             return true;
         }

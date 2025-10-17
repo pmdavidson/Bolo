@@ -5,6 +5,7 @@
 #include "Base.h"
 #include "GameContext.h"
 #include "DrawContext.h"
+#include <algorithm> // for std::min, std::max in Update()
 
 namespace CMPUT350
 {
@@ -36,7 +37,6 @@ namespace CMPUT350
         float width = std::abs(mPrevPosition.x - mPosition.x) + 2 * mRadius;
         float height = std::abs(mPrevPosition.y - mPosition.y) + 2 * mRadius;
         mBounds = Rect(topLeft, width, height);
-
     }
 
     void Bullet::RenderBackground(GameContext *context)
@@ -48,48 +48,39 @@ namespace CMPUT350
     {
     }
 
-    // void Bullet::CollisionEnter(const std::shared_ptr<CollisionObject> &obj)
-    // {
-    //     // Approximate point from midpoint
-    //     Point2D guess = (mPrevPosition + mPosition) * 0.5f;
-    //     CollisionEnter(obj, guess);
-    // }
-    void Bullet::CollisionEnter(const std::shared_ptr<CollisionObject> &obj) {
-    std::cout << "[Bullet] CollisionEnter with object at " << obj.get() << "\n";
-    std::cout << "  Shape count: " << obj->GetShapes().size() << "\n";
-    std::cout << "  First shape type: " << static_cast<int>(obj->GetShapes()[0].t) << "\n";
-    CollisionEnter(obj, mPosition);
-
-}
+    void Bullet::CollisionEnter(const std::shared_ptr<CollisionObject> &obj)
+    {
+        if (!obj)
+            return;
+        CollisionEnter(obj, mPosition);
+    }
 
     void Bullet::CollisionEnter(const std::shared_ptr<CollisionObject> &obj, const Point2D &collisionPoint)
     {
         if (!mIsAlive)
             return;
 
-        // Ignore collision with parent tank if bullet still inside its bounds
-        if (obj.get() == mParent) //&& mBounds.intersects(mParent->GetBounds())
+        if (!obj)
             return;
 
-    // // Check if collision is with enemy or base
-    // auto enemy = std::dynamic_pointer_cast<Enemy>(obj);
-    // auto base = std::dynamic_pointer_cast<Base>(obj);
+        // Ignore collision with parent tank
+        if (mParent && obj.get() == mParent)
+            return;
 
-        // Kill bullet
         mIsAlive = false;
 
-        // Spawn explosion on bullet collision
-        if (mLastContext && mLastContext->EngineContext)
+        // Don't spawn explosion for enemies
+        auto enemy = std::dynamic_pointer_cast<Enemy>(obj);
+        
+        if (!enemy && mLastContext && mLastContext->EngineContext)
         {
-            auto explosion = std::make_shared<Explosion>(mPosition, 10);
-            mLastContext->EngineContext->AddGameObject(explosion);
+            auto newExplosion = std::make_shared<Explosion>(collisionPoint, 10);
+            mLastContext->EngineContext->AddGameObject(newExplosion);
         }
-        // Clear context reference to prevent dangling pointer
+        
         mLastContext = nullptr;
-
-        // Always clear parent to allow future bullets to hit this tank again
         mParent = nullptr;
-        }
+    }
 
     const Rect &Bullet::GetBounds()
     {
@@ -99,7 +90,14 @@ namespace CMPUT350
     const std::vector<Shape> &Bullet::GetShapes()
     {
         mShapes.clear();
+        
+        // Rectangle along bullet's path to prevent tunneling through walls
+        // This is the swept bounding box from previous to current position
+        mShapes.emplace_back(Rect(mBounds));
+        
+        // Circle at current position for precise collision detection
         mShapes.emplace_back(Circle(mPosition, mRadius));
+        
         return mShapes;
     }
 }

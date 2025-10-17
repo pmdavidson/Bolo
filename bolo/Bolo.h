@@ -14,7 +14,8 @@ namespace CMPUT350
 {
     enum class GameState
     {
-        WaitingToStart,    // Waiting for player to choose density
+        SelectingLevel,    // Waiting for player to choose level
+        SelectingDensity,  // Waiting for player to choose density
         InitializingLevel, // Setting up level
         GamePlay,          // Active gameplay
         EndLevel,          // Level complete

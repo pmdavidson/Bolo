@@ -51,10 +51,10 @@ namespace CMPUT350
     {
         mGameObjects.clear();
         mPendingObjects.clear();
-        
+
         // Clear notification manager
         mNotificationManager = NotificationManager();
-        
+
         // Close window if still open
         if (mWindow.isOpen())
         {
@@ -161,48 +161,50 @@ namespace CMPUT350
             // Separate static and dynamic objects for O(n) static checks
             std::vector<std::shared_ptr<CollisionObject>> staticObjects;
             std::vector<std::shared_ptr<CollisionObject>> dynamicObjects;
-            
+
             // Categorize objects once per frame
-            for (auto& obj : mGameObjects)
+            for (auto &obj : mGameObjects)
             {
                 std::shared_ptr<CollisionObject> collisionObj = std::dynamic_pointer_cast<CollisionObject>(obj);
                 if (collisionObj == nullptr)
                     continue;
-                    
+
                 if (collisionObj->IsStatic())
                     staticObjects.push_back(collisionObj);
                 else
                     dynamicObjects.push_back(collisionObj);
             }
-            
-            // Check dynamic vs dynamic collisions (both can move)
+
+            // Check dynamic vs dynamic collisions
             for (size_t i = 0; i < dynamicObjects.size(); ++i)
             {
                 for (size_t j = i + 1; j < dynamicObjects.size(); ++j)
                 {
-                    auto& objA = dynamicObjects[i];
-                    auto& objB = dynamicObjects[j];
-                    
+                    auto &objA = dynamicObjects[i];
+                    auto &objB = dynamicObjects[j];
+
                     if (objA->GetBounds().intersects(objB->GetBounds()))
                     {
                         Point2D collisionPoint;
-                        if (objA->CollidesWith(objB, &collisionPoint)) {
+                        if (objA->CollidesWith(objB, &collisionPoint))
+                        {
                             objA->CollisionEnter(objB, collisionPoint);
                             objB->CollisionEnter(objA, collisionPoint);
                         }
                     }
                 }
             }
-            
+
             // Check dynamic vs static collisions (only dynamic objects can hit static)
-            for (auto& dynamicObj : dynamicObjects)
+            for (auto &dynamicObj : dynamicObjects)
             {
-                for (auto& staticObj : staticObjects)
+                for (auto &staticObj : staticObjects)
                 {
                     if (dynamicObj->GetBounds().intersects(staticObj->GetBounds()))
                     {
                         Point2D collisionPoint;
-                        if (dynamicObj->CollidesWith(staticObj, &collisionPoint)) {
+                        if (dynamicObj->CollidesWith(staticObj, &collisionPoint))
+                        {
                             dynamicObj->CollisionEnter(staticObj, collisionPoint);
                             staticObj->CollisionEnter(dynamicObj, collisionPoint);
                         }

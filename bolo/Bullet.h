@@ -27,7 +27,7 @@ namespace CMPUT350
         Point2D mPosition;
         Point2D mHeading;
         float mRadius;
-        CollisionObject *mParent; // changed from GameObject type
+        CollisionObject *mParent;
         Rect mBounds;
 
         std::vector<Shape> mShapes;

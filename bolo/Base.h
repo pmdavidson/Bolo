@@ -10,7 +10,7 @@ namespace CMPUT350
     class Base : public CollisionObject
     {
     public:
-        Base(Point2D loc);
+        Base(Point2D loc, int gameLevel = 1);
 
         void Update(GameContext *context) override;
         void LateUpdate(GameContext *context) override;
@@ -33,6 +33,7 @@ namespace CMPUT350
         const float mBaseRadius = 102.0f;
         std::vector<Shape> mShapes;
         bool mExplosionSpawned = false;
+        int mGameLevel; // Game level determines enemy types (1, 3, or 5)
     };
 }
 #endif

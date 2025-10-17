@@ -9,7 +9,7 @@ namespace CMPUT350
     class Enemy : public CollisionObject
     {
     public:
-        Enemy(Point2D loc, Point2D direction = Point2D(0, -1));
+        Enemy(Point2D loc, Point2D direction = Point2D(0, -1), int level = 1);
 
         void Update(GameContext *context) override;
         void LateUpdate(GameContext *context) override;
@@ -34,6 +34,12 @@ namespace CMPUT350
         Rect mBounds;
         bool mHasExitedBase = false; // Track if enemy has left spawn base
         Point2D mSpawnPosition; // Where enemy was spawned
+        int mLevel;
+        
+        float mBulletSpeed;
+        CMPUT350::RGBColor mArmColor;
+        CMPUT350::RGBColor mBarrelColor;
+        int mFireChance;
 
         void UpdateMovement();
         void FireBullet(GameContext *context);
@@ -42,8 +48,9 @@ namespace CMPUT350
 
         bool mIsAlive = true;
         bool mExplosionSpawned = false;
-        std::weak_ptr<Bullet> mLastBullet; // Track most recently fired bullet
-        int mCollisionCooldown = 0; // Prevent immediate re-collision
+        std::weak_ptr<Bullet> mLastBullet;
+        int mCollisionCooldown = 0; 
+        int mSecondShotTimer = 0;
         std::vector<Shape> mShapes;
     };
 }

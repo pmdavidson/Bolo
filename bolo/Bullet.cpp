@@ -71,13 +71,13 @@ namespace CMPUT350
 
         // Don't spawn explosion for enemies
         auto enemy = std::dynamic_pointer_cast<Enemy>(obj);
-        
+
         if (!enemy && mLastContext && mLastContext->EngineContext)
         {
             auto newExplosion = std::make_shared<Explosion>(collisionPoint, 10);
             mLastContext->EngineContext->AddGameObject(newExplosion);
         }
-        
+
         mLastContext = nullptr;
         mParent = nullptr;
     }
@@ -90,14 +90,13 @@ namespace CMPUT350
     const std::vector<Shape> &Bullet::GetShapes()
     {
         mShapes.clear();
-        
+
         // Rectangle along bullet's path to prevent tunneling through walls
-        // This is the swept bounding box from previous to current position
         mShapes.emplace_back(Rect(mBounds));
-        
+
         // Circle at current position for precise collision detection
         mShapes.emplace_back(Circle(mPosition, mRadius));
-        
+
         return mShapes;
     }
 }

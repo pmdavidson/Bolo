@@ -17,7 +17,7 @@ namespace CMPUT350
     class NotificationManager;
 
     Bolo::Bolo(int mazeWidth, int mazeHeight, int cellSize, int initialLevel)
-        : mState(GameState::WaitingToStart),
+        : mState(GameState::SelectingLevel),
           mLevel(initialLevel),
           mScore(0),
           mMazeDensity(3),
@@ -53,7 +53,11 @@ namespace CMPUT350
 
         switch (mState)
         {
-        case GameState::WaitingToStart:
+        case GameState::SelectingLevel:
+            // Waiting for player to press 1-5 to select level
+            break;
+
+        case GameState::SelectingDensity:
             // Waiting for player to press 1-5 to select density
             break;
 
@@ -90,7 +94,7 @@ namespace CMPUT350
             if (AllBasesDestroyed())
             {
                 mState = GameState::EndLevel;
-                mStateTimer = 150; // 5 seconds at 30 FPS
+                mStateTimer = 90; // 3 seconds
             }
             break;
 
@@ -101,8 +105,14 @@ namespace CMPUT350
             }
             else
             {
+                // Kill all remaining level objects (enemies, bullets, explosions, player)
+                CleanupLevel(context);
+
+                if (mLevel < 5)
+                    mLevel++;
+
                 mState = GameState::CleaningUp;
-                mStateTimer = 10; // Wait 10 frames
+                mStateTimer = 30;
             }
             break;
 
@@ -113,19 +123,9 @@ namespace CMPUT350
             }
             else
             {
-                // Kill all old level objects
-                CleanupLevel(context);
-
-                // Move to next level (cap at 5)
-                if (mLevel < 5)
-                {
-                    mLevel++;
-                }
-                mMazeDensity = mLevel; // Density matches level (both capped at 5)
-
-                // Wait 2 frames for engine to fully remove dead objects
-                mStateTimer = 2;
+                // Now spawn new level
                 mState = GameState::InitializingLevel;
+                mStateTimer = 5; // Small delay before spawning
             }
             break;
         }
@@ -169,20 +169,62 @@ namespace CMPUT350
 
         RenderGUI(context);
 
-        // Render state-specific text
-        if (mState == GameState::WaitingToStart)
+        // Render state-specific text and viewport
+        if (mState == GameState::SelectingLevel)
         {
-            // Display instructions
+            // Display instructions for level selection
             context->ScreenContext->DrawText(
-                "Press 1-5 to select",
+                "Select Level (1-5)",
+                24,
+                Point2D(mGuiXStart + 20, 380),
+                RGBColor(255, 255, 0));
+            context->ScreenContext->DrawText(
+                "Level determines which",
+                18,
+                Point2D(mGuiXStart + 20, 420),
+                RGBColor(255, 255, 255));
+            context->ScreenContext->DrawText(
+                "enemies may spawn",
+                18,
+                Point2D(mGuiXStart + 20, 445),
+                RGBColor(255, 255, 255));
+        }
+        else if (mState == GameState::SelectingDensity)
+        {
+            // Display instructions for density selection
+            context->ScreenContext->DrawText(
+                "Level: " + std::to_string(mLevel),
                 20,
+                Point2D(mGuiXStart + 20, 350),
+                RGBColor(0, 255, 0));
+
+            context->ScreenContext->DrawText(
+                "Select Density (1-5)",
+                24,
                 Point2D(mGuiXStart + 20, 400),
+                RGBColor(255, 255, 0));
+            context->ScreenContext->DrawText(
+                "1 = Sparse maze",
+                18,
+                Point2D(mGuiXStart + 20, 440),
                 RGBColor(255, 255, 255));
             context->ScreenContext->DrawText(
-                "maze density",
-                20,
-                Point2D(mGuiXStart + 20, 430),
+                "5 = Dense maze",
+                18,
+                Point2D(mGuiXStart + 20, 465),
                 RGBColor(255, 255, 255));
+        }
+        else if (mState == GameState::GamePlay)
+        {
+            // Set gameplay viewport and follow player
+            context->ScreenContext->SetGameplayViewport();
+
+            if (mPlayer)
+            {
+                float playerX = mPlayer->GetBounds().topLeft.x + mPlayer->GetBounds().width / 2.0f;
+                float playerY = mPlayer->GetBounds().topLeft.y + mPlayer->GetBounds().height / 2.0f;
+                context->ScreenContext->SetContextCenter(Point2D(playerX, playerY));
+            }
         }
         else if (mState == GameState::EndLevel)
         {
@@ -190,70 +232,59 @@ namespace CMPUT350
             float centerX = mGameplayWidth / 2.0f;
             float centerY = 512.0f;
 
-            // Congratulations text
-            std::string congratsText = "LEVEL COMPLETE!";
             context->ScreenContext->DrawText(
-                congratsText,
+                "LEVEL COMPLETE!",
                 40,
                 Point2D(centerX - 200, centerY - 100),
                 RGBColor(0, 255, 0));
 
-            // Level number
             context->ScreenContext->DrawText(
                 "Level " + std::to_string(mLevel) + " Finished",
                 24,
                 Point2D(centerX - 120, centerY - 40),
                 RGBColor(255, 255, 255));
 
-            // Score display
             context->ScreenContext->DrawText(
                 "Score: " + std::to_string(mScore),
                 24,
                 Point2D(centerX - 80, centerY + 20),
                 RGBColor(255, 255, 0));
 
-            // Countdown timer
-            int secondsLeft = (mStateTimer + 29) / 30; // Convert frames to seconds
+            int secondsLeft = (mStateTimer + 29) / 30;
             context->ScreenContext->DrawText(
                 "Next level in " + std::to_string(secondsLeft) + " seconds...",
                 18,
                 Point2D(centerX - 150, centerY + 80),
                 RGBColor(200, 200, 200));
-        }
 
-        // Restore gameplay viewport
-        if (mState == GameState::GamePlay || mState == GameState::EndLevel)
-        {
+            // Set gameplay viewport and zoom out to show entire world
             context->ScreenContext->SetGameplayViewport();
 
-            if (mState == GameState::EndLevel)
-            {
-                // EndLevel: center on map and zoom out to show entire world
-                float worldCenter = mWorldSize / 2.0f;
-                // Fit entire square world into 1024x1024 gameplay view: size equals world bounds
-                context->ScreenContext->SetGameplayCenterAndSize(
-                    Point2D(worldCenter, worldCenter),
-                    sf::Vector2f(static_cast<float>(mWorldSize), static_cast<float>(mWorldSize)));
-            }
-            else if (mPlayer)
-            {
-                // Gameplay: follow player
-                float playerX = mPlayer->GetBounds().topLeft.x + mPlayer->GetBounds().width / 2.0f;
-                float playerY = mPlayer->GetBounds().topLeft.y + mPlayer->GetBounds().height / 2.0f;
-                context->ScreenContext->SetContextCenter(Point2D(playerX, playerY));
-            }
+            float worldCenter = mWorldSize / 2.0f;
+            context->ScreenContext->SetGameplayCenterAndSize(
+                Point2D(worldCenter, worldCenter),
+                sf::Vector2f(static_cast<float>(mWorldSize / 0.99f), static_cast<float>(mWorldSize / 0.99f)));
         }
     }
 
     bool Bolo::HandleKeyEvent(GameContext *context, char key)
     {
-        if (mState == GameState::WaitingToStart)
+        if (mState == GameState::SelectingLevel)
+        {
+            // Check for level selection (1-5)
+            if (key >= '1' && key <= '5')
+            {
+                mLevel = key - '0';
+                mState = GameState::SelectingDensity;
+                return true;
+            }
+        }
+        else if (mState == GameState::SelectingDensity)
         {
             // Check for density selection (1-5)
             if (key >= '1' && key <= '5')
             {
                 mMazeDensity = key - '0';
-                mLevel = key - '0';
                 mState = GameState::InitializingLevel;
                 return true;
             }
@@ -496,7 +527,7 @@ namespace CMPUT350
         int basesSpawned = 0;
         int attempts = 0;
 
-        while (basesSpawned < 1 && attempts < 1000)
+        while (basesSpawned < 6 && attempts < 1000)
         {
             int cellX = std::rand() % mMazeWidth;
             int cellY = std::rand() % mMazeHeight;
@@ -505,7 +536,8 @@ namespace CMPUT350
             float worldX = cellX * mCellSize + mCellSize / 2.0f;
             float worldY = cellY * mCellSize + mCellSize / 2.0f;
 
-            auto base = std::make_shared<Base>(Point2D(worldX, worldY));
+            // Pass the current game level to the base so it spawns appropriate enemies
+            auto base = std::make_shared<Base>(Point2D(worldX, worldY), mLevel);
             context->EngineContext->AddGameObject(base);
             basesSpawned++;
 
@@ -544,9 +576,6 @@ namespace CMPUT350
 
     void Bolo::RenderGUI(GameContext *context)
     {
-        if (mState != GameState::GamePlay && mState != GameState::EndLevel)
-            return;
-
         // Draw GUI background (make it large enough to fill the GUI area)
         Rect guiBackground(mGuiXStart, 0, 500, 1200);
         context->ScreenContext->DrawRect(guiBackground, RGBColor(32, 32, 32));
@@ -557,6 +586,10 @@ namespace CMPUT350
             30,
             Point2D(mGuiXStart + 80, 20),
             RGBColor(255, 255, 0));
+
+        // Early return if not in gameplay or end level
+        if (mState != GameState::GamePlay && mState != GameState::EndLevel)
+            return;
 
         // Render components
         RenderRadar(context);

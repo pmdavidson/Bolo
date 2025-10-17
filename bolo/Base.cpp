@@ -16,8 +16,8 @@
 namespace CMPUT350
 {
 
-    Base::Base(CMPUT350::Point2D loc)
-        : mPosition(loc), mHealth(4), mEnemySpawnCooldown(60), mBaseRegenCooldown(60)
+    Base::Base(CMPUT350::Point2D loc, int gameLevel)
+        : mPosition(loc), mHealth(4), mEnemySpawnCooldown(60), mBaseRegenCooldown(60), mGameLevel(gameLevel)
     {
         UpdateBounds();
         // Seed random number generator
@@ -36,7 +36,7 @@ namespace CMPUT350
         if (!mIsAlive)
             return;
 
-        // Health regeneration every 2 seconds (60 frames at 30 fps)
+        // Health regeneration every 2 seconds
         if (mBaseRegenCooldown > 0)
         {
             mBaseRegenCooldown--;
@@ -114,7 +114,8 @@ namespace CMPUT350
             // Only spawn enemy if no wall is blocking
             if (!wallBlocking)
             {
-                auto enemy = std::make_shared<Enemy>(spawnPos, enemyDirection);
+                // Spawn enemy with level matching the game level
+                auto enemy = std::make_shared<Enemy>(spawnPos, enemyDirection, mGameLevel);
                 context->EngineContext->AddGameObject(enemy);
             }
 

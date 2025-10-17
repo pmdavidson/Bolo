@@ -13,13 +13,37 @@
 namespace CMPUT350
 {
 
-    Enemy::Enemy(CMPUT350::Point2D loc, CMPUT350::Point2D direction) : mPosition(loc),
+    Enemy::Enemy(CMPUT350::Point2D loc, CMPUT350::Point2D direction, int level) : mPosition(loc),
                                                                        mPreviousPosition(loc),
                                                                        mDirection(direction),
-                                                                       mSpawnPosition(loc)
+                                                                       mSpawnPosition(loc),
+                                                                       mLevel(level)
     {
         // Normalize initial direction
         mDirection.Normalize();
+        
+        if (mLevel == 1)
+        {
+            mFireChance = 250;
+            mBulletSpeed = 30.0f;
+            mArmColor = CMPUT350::RGBColor(255, 255, 0);    // Yellow
+            mBarrelColor = CMPUT350::RGBColor(0, 255, 255); // Cyan
+        }
+        else if (mLevel == 3)
+        {
+            mFireChance = 150;
+            mBulletSpeed = 35.0f;
+            mArmColor = CMPUT350::RGBColor(255, 0, 0);      // Red
+            mBarrelColor = CMPUT350::RGBColor(0, 255, 255); // Cyan
+        }
+        else // Level 5
+        {
+            mFireChance = 150;
+            mBulletSpeed = 40.0f;
+            mArmColor = CMPUT350::RGBColor(128, 0, 255);    // Purple
+            mBarrelColor = CMPUT350::RGBColor(128, 0, 255); // Purple
+        }
+        
         UpdateBounds();
     }
 
@@ -32,11 +56,25 @@ namespace CMPUT350
 
         // Decrement collision cooldown
         if (mCollisionCooldown > 0)
-        {
             mCollisionCooldown--;
+
+        if (mSecondShotTimer > 0)
+        {
+            mSecondShotTimer--;
+            if (mSecondShotTimer == 0)
+            {
+                // Fire the second bullet
+                CMPUT350::Point2D bulletVelocity = mDirection * mBulletSpeed;
+                auto bullet = std::make_shared<Bullet>(this, mPosition, bulletVelocity, 3.0f);
+                if (context && context->EngineContext)
+                {
+                    mLastBullet = bullet;
+                    context->EngineContext->AddGameObject(bullet);
+                }
+            }
         }
 
-        // Check if enemy has exited base (moved at least 102px from spawn)
+        // Check if enemy has exited base
         if (!mHasExitedBase)
         {
             float distanceFromSpawn = mPosition.Distance(mSpawnPosition);
@@ -54,9 +92,9 @@ namespace CMPUT350
             {
                 TurnRandomly();
             }
-
-            // 1/250 chance to fire
-            if ((std::rand() % 250) == 0)
+            
+            // 1/250 chance to shoot bullet
+            if ((std::rand() % mFireChance) == 0)
             {
                 FireBullet(context);
             }
@@ -64,9 +102,7 @@ namespace CMPUT350
 
         // Handle movement
         if (mCollisionCooldown == 0)
-        {
             UpdateMovement();
-        }
 
         // Update bounding box
         UpdateBounds();
@@ -90,7 +126,6 @@ namespace CMPUT350
                     mLastContext->NotificationContext->Notify("ENEMY_DESTROYED");
                 }
             }
-            // Clear context reference to prevent dangling pointer
             mLastContext = nullptr;
         }
     }
@@ -101,7 +136,6 @@ namespace CMPUT350
             return;
 
         // Draw Y-shape pointing in direction of travel
-        // Two yellow "arms" at 45 degrees forming a V
         float armLength = mBarrelLength;
         float armAngle = CMPUT350::DegToRad(45.0f);
 
@@ -111,15 +145,25 @@ namespace CMPUT350
 
         // Left arm
         CMPUT350::Point2D leftArmEnd = mPosition - perpLeft * armLength;
-        context->ScreenContext->DrawLine(mPosition, leftArmEnd, 4.0f, CMPUT350::RGBColor(255, 255, 0)); // Yellow
+        context->ScreenContext->DrawLine(mPosition, leftArmEnd, 4.0f, mArmColor);
 
         // Right arm
         CMPUT350::Point2D rightArmEnd = mPosition - perpRight * armLength;
-        context->ScreenContext->DrawLine(mPosition, rightArmEnd, 4.0f, CMPUT350::RGBColor(255, 255, 0)); // Yellow
+        context->ScreenContext->DrawLine(mPosition, rightArmEnd, 4.0f, mArmColor);
 
-        // Draw cyan/blue barrel pointing forward
+        // Draw barrel pointing forward
         CMPUT350::Point2D barrelEnd = mPosition + mDirection * mBarrelLength;
-        context->ScreenContext->DrawLine(mPosition, barrelEnd, 4.0f, CMPUT350::RGBColor(0, 255, 255)); // Cyan
+        context->ScreenContext->DrawLine(mPosition, barrelEnd, 4.0f, mBarrelColor);
+
+        // Level 5: Add a line across the enemy
+        if (mLevel == 5)
+        {
+            // Draw a perpendicular line across the center
+            CMPUT350::Point2D perpDir = CMPUT350::Point2D(-mDirection.y, mDirection.x);
+            CMPUT350::Point2D lineStart = mPosition - perpDir * (mBarrelLength * 0.8f);
+            CMPUT350::Point2D lineEnd = mPosition + perpDir * (mBarrelLength * 0.8f);
+            context->ScreenContext->DrawLine(lineStart, lineEnd, 4.0f, CMPUT350::RGBColor(0, 255, 0)); // Green line
+        }
     }
 
     void Enemy::RenderForeground(GameContext *context)
@@ -264,9 +308,7 @@ namespace CMPUT350
         if (!mIsAlive || !context || !context->EngineContext)
             return;
 
-        const float BULLET_SPEED = 30.0f; // Bullet speed
-
-        CMPUT350::Point2D bulletVelocity = mDirection * BULLET_SPEED;
+        CMPUT350::Point2D bulletVelocity = mDirection * mBulletSpeed;
 
         auto bullet = std::make_shared<Bullet>(this, mPosition, bulletVelocity, 3.0f);
 
@@ -274,6 +316,12 @@ namespace CMPUT350
         mLastBullet = bullet;
 
         context->EngineContext->AddGameObject(bullet);
+
+        // Level 5 enemies fire a second bullet after a short delay
+        if (mLevel == 5)
+        {
+            mSecondShotTimer = 20; // Delay of 20 frames 
+        }
     }
 
     void Enemy::UpdateBounds()

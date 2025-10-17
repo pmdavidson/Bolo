@@ -158,7 +158,7 @@ namespace CMPUT350
             }
 
             // Process collisions with aggressive optimization for high wall counts
-            // Separate static and dynamic objects for O(n) static checks
+            // Separate static and dynamic objects
             std::vector<std::shared_ptr<CollisionObject>> staticObjects;
             std::vector<std::shared_ptr<CollisionObject>> dynamicObjects;
 

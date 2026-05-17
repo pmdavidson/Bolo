@@ -276,4 +276,3 @@ Developed by:
 - **Eric Jiang**
 
 Original project context: CMPUT 350 Project Assignment 1 Part 2.
-Instructions: [Link](https://docs.google.com/document/d/12tVd8AXH-6gNevzkVc1PQGucumMaRAgP5cTJ0v_esl4/edit?tab=t.0)
